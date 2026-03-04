@@ -6,6 +6,7 @@ VIDEO DEMO
 ## Background
 
 This project is based on the original [midiverb_emulator](https://github.com/thement/midiverb_emulator), which emulates the Alesis Midiverb multi‑effects unit as a software plugin.
+here's their awesome web demo http://ibawizard.net/midiverb/
 
 ## What this fork changes
 
@@ -13,3 +14,5 @@ This project is based on the original [midiverb_emulator](https://github.com/the
 - Combines **two routed instances** of the effect into a single GUI.
 - Adds expanded parameter controls so both internal instances can be tweaked in more detail from one interface.
 - Aims to be a more DAW‑friendly, performance‑oriented version of the original project.
+- one important difference is there's a vibrato for the feedback on all the presets, cause why not
+- another important difference is there's a soft clip on the feedback because it's crazy.
