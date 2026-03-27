@@ -2,6 +2,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "BinaryData.h"
 
+
 //==============================================================================
 // ComboBoxLookAndFeel
 // Draws a clean dark combo with no border, using your background theme
@@ -252,8 +253,8 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        const int buttonSize = 40;
-        const int gap        = 10;
+        const int buttonSize = 40 * scaleUp;
+        const int gap        = 10 * scaleUp;
 
         const int cellW = buttonSize;
         const int cellH = buttonSize;
@@ -285,8 +286,8 @@ public:
 
     int yToIndex (int y) const
     {
-        const int buttonSize = 40;
-        const int gap        = 10;
+        const int buttonSize = 40 * scaleUp;
+        const int gap        = 10 * scaleUp;
         const int cellSpan   = buttonSize + gap; // 50
 
         int idx = y / cellSpan;
@@ -324,6 +325,7 @@ public:
     }
 
 private:
+    float scaleUp = 1.33f;
     int currentValue  = 0;   // which routing option is active
     int pressedIndex  = -1;  // which cell is currently pressed (for frame=1)
     juce::Image images[3];

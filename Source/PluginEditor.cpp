@@ -14,6 +14,27 @@ KnobLookAndFeel::KnobLookAndFeel()
                                                  BinaryData::knob_pngSize);
 }
 
+// void KnobLookAndFeel::drawRotarySlider (juce::Graphics& g,
+//                                         int x, int y, int width, int height,
+//                                         float sliderPos,
+//                                         float startAngle, float endAngle,
+//                                         juce::Slider&)
+// {
+//     if (! knobImage.isValid())
+//         return;
+
+//     auto bounds = juce::Rectangle<float> ((float)x, (float)y,
+//                                           (float)width, (float)height);
+//     float angle = startAngle + sliderPos * (endAngle - startAngle);
+
+//     juce::AffineTransform t;
+//     t = t.translated (-knobImage.getWidth()  * 0.5f,
+//                       -knobImage.getHeight() * 0.5f);
+//     t = t.rotated (angle);
+//     t = t.translated (bounds.getCentreX(), bounds.getCentreY());
+
+//     g.drawImageTransformed (knobImage, t, false);
+// }
 void KnobLookAndFeel::drawRotarySlider (juce::Graphics& g,
                                         int x, int y, int width, int height,
                                         float sliderPos,
@@ -25,12 +46,28 @@ void KnobLookAndFeel::drawRotarySlider (juce::Graphics& g,
 
     auto bounds = juce::Rectangle<float> ((float)x, (float)y,
                                           (float)width, (float)height);
+
     float angle = startAngle + sliderPos * (endAngle - startAngle);
 
+    const float imgW = (float) knobImage.getWidth();
+    const float imgH = (float) knobImage.getHeight();
+
+    // Uniform scaling so the image fits inside the slider bounds
+    const float scale = std::min (bounds.getWidth()  / imgW,
+                                  bounds.getHeight() / imgH);
+
     juce::AffineTransform t;
-    t = t.translated (-knobImage.getWidth()  * 0.5f,
-                      -knobImage.getHeight() * 0.5f);
+
+    // Move image centre to origin
+    t = t.translated (-imgW * 0.5f, -imgH * 0.5f);
+
+    // Apply uniform scale
+    t = t.scaled (scale, scale);
+
+    // Rotate around origin
     t = t.rotated (angle);
+
+    // Move to slider centre
     t = t.translated (bounds.getCentreX(), bounds.getCentreY());
 
     g.drawImageTransformed (knobImage, t, false);
@@ -155,7 +192,7 @@ MidiverbAudioProcessorEditor::MidiverbAudioProcessorEditor (MidiverbAudioProcess
     addAndMakeVisible (outputIndicator);
 
     // ── Window ─────────────────────────────────────────────
-    setSize (800, 600);
+    setSize (1024, 768);
 
     // No resizer, no constrainer
     setResizable (false, false);
@@ -468,16 +505,16 @@ void MidiverbAudioProcessorEditor::resized()
     outputIndicator.setBounds (outputX, inputY, indPxW, indPxH);
 
     // Choose design-space coords and size for the flame
-    constexpr float flameX = 672.0f;
-    constexpr float flameY = 463.0f;
-    constexpr float flameW = 25.0f;  // full strip width
-    constexpr float flameH = 66.0f;
+    const float flameX = 671.0f * 1.33f;
+    const float flameY = 468.0f * 1.33f;
+    const float flameW = 25.0f * 1.33f;  // full strip width
+    const float flameH = 66.0f * 1.33f;
 
     clipFlameFilmstrip.setBounds (
         toX (flameX),
         toY (flameY),
-        int (flameW * s),
-        int (flameH * s));
+        int (flameW),
+        int (flameH));
 
     // Routing column
     const int routeCellPx = (int) std::round (routingCellSize * s); // 40 * s

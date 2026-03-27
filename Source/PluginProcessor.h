@@ -223,6 +223,8 @@ private:
     int memoryPointerB = 0;
     double lastWetAL = 0.0, lastWetAR = 0.0;
     double lastWetBL = 0.0, lastWetBR = 0.0;
+    double lastRevAL = 0.0, lastRevAR = 0.0;
+    double lastRevBL = 0.0, lastRevBR = 0.0;
 
     // Resampling state
     double hostSampleRate = 48000.0;

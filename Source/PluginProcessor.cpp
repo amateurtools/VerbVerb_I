@@ -574,24 +574,46 @@ void MidiverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (!bothEnabled && routing != 0)
             effectiveRouting = 0; // force Parallel when either or both are disabled
 
+        // switch (effectiveRouting)
+        // {
+        //     case 1: // A -> B
+        //         extA_raw = inMono;                              // DAW into A
+        //         extB_raw = (lastWetAL + lastWetAR) * 0.5;       // A's wet into B
+        //         break;
+
+        //     case 2: // B -> A
+        //         extB_raw = inMono;                              // DAW into B
+        //         extA_raw = (lastWetBL + lastWetBR) * 0.5;       // B's wet into A
+        //         break;
+
+        //     case 0:
+        //     default:
+        //         extA_raw = inMono;                              // DAW into both
+        //         extB_raw = inMono;
+        //         break;
+        // }
+        // ROUTING SWITCH (use lastRev* instead of lastWet*)
+
         switch (effectiveRouting)
         {
             case 1: // A -> B
-                extA_raw = inMono;                              // DAW into A
-                extB_raw = (lastWetAL + lastWetAR) * 0.5;       // A's wet into B
+                extA_raw = inMono;                                   // DAW into A
+                extB_raw = (lastRevAL + lastRevAR) * 0.5;           // A's post‑level wet into B
                 break;
 
             case 2: // B -> A
-                extB_raw = inMono;                              // DAW into B
-                extA_raw = (lastWetBL + lastWetBR) * 0.5;       // B's wet into A
+                extB_raw = inMono;                                   // DAW into B
+                extA_raw = (lastRevBL + lastRevBR) * 0.5;           // B's post‑level wet into A
                 break;
 
             case 0:
             default:
-                extA_raw = inMono;                              // DAW into both
+                extA_raw = inMono;
                 extB_raw = inMono;
                 break;
         }
+
+
         //_________________________________________________
 
         // Per-engine pre-delay times in samples
@@ -641,33 +663,15 @@ void MidiverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         double fbA = (lastWetAL + lastWetAR) * 0.5 * feedbackA;
         double fbB = (lastWetBL + lastWetBR) * 0.5 * feedbackB;
 
-        // Optional soft clip on feedback to keep it musical
-        if (fbSoftClip)
-        {
-            auto softClip = [] (double x)
-            {
-                // gentle drive; tweak 1.5 if you want more/less saturation
-                const double drive = 1.5;
-                return std::tanh (drive * x);
-            };
 
-            fbA = softClip (fbA);
-            fbB = softClip (fbB);
-        }
-
-        constexpr double fbMax = 1.0;
-        double fbMagA = std::abs (fbA);
-        if (fbMagA > fbMax) fbA *= fbMax / fbMagA;
-        double fbMagB = std::abs (fbB);
-        if (fbMagB > fbMax) fbB *= fbMax / fbMagB;
 
         // Vibrato on feedback only
-        float fbModA = vibratoA.process ((float) fbA);
-        float fbModB = vibratoB.process ((float) fbB);
+        // float fbModA = vibratoA.process ((float) fbA);
+        // float fbModB = vibratoB.process ((float) fbB);
 
         // engine inputs: routed+predelayed dry + modulated feedback
-        double inA = monoAInDry + fbModA;
-        double inB = monoBInDry + fbModB;
+        double inA = monoAInDry + fbA;
+        double inB = monoBInDry + fbB;
 
         // Per-engine HPF/LPF on the *total* engine input (DAW/series + feedback)
         float inA_f = (float) inA;
@@ -763,11 +767,76 @@ void MidiverbAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         lastWetAL = wetAL; lastWetAR = wetAR;
         lastWetBL = wetBL; lastWetBR = wetBR;
 
+        if (fbSoftClip)
+        {
+            auto transparentSoftClip = [] (double x)
+            {
+                const double threshold = 0.8;   // where it starts to bend
+                const double drive     = 1.5;   // curvature strength
+
+                // scale into tanh region
+                double scaled = x / threshold;
+
+                // soft clip
+                double y = std::tanh (drive * scaled);
+
+                // compensate small-signal gain: tanh'(0) = drive
+                y /= drive;
+
+                // scale back
+                return y * threshold;
+            };
+
+            fbA = transparentSoftClip (lastWetAL);
+            fbB = transparentSoftClip (lastWetBL);
+        }
+
+        constexpr double fbMax = 1.0;
+        double fbMagA = std::abs (lastWetAL);
+        if (fbMagA > fbMax) lastWetAL *= fbMax / fbMagA;
+        double fbMagB = std::abs (lastWetBL);
+        if (fbMagB > fbMax) lastWetBL *= fbMax / fbMagB;
+
         // Per-engine pan + level + enable (no cross-feedback anymore)
-        double revAL = enableA ? wetAL * panAL * levelA : 0.0;
-        double revAR = enableA ? wetAR * panAR * levelA : 0.0;
-        double revBL = enableB ? wetBL * panBL * levelB : 0.0;
-        double revBR = enableB ? wetBR * panBR * levelB : 0.0;
+        // double revAL = enableA ? wetAL * panAL * levelA : 0.0;
+        // double revAR = enableA ? wetAR * panAR * levelA : 0.0;
+        // double revBL = enableB ? wetBL * panBL * levelB : 0.0;
+        // double revBR = enableB ? wetBR * panBR * levelB : 0.0;
+        double revAL = 0.0;
+        double revAR = 0.0;
+        double revBL = 0.0;
+        double revBR = 0.0;
+        // disable panning when not in parallel routing mode
+        switch (effectiveRouting)
+        {
+            case 1: // A -> B
+                revAL = enableA ? wetAL * levelA : 0.0;
+                revAR = enableA ? wetAR * levelA : 0.0;
+                revBL = enableB ? wetBL * levelB : 0.0;
+                revBR = enableB ? wetBR * levelB : 0.0;
+                break;
+
+            case 2: // B -> A
+                revAL = enableA ? wetAL * levelA : 0.0;
+                revAR = enableA ? wetAR * levelA : 0.0;
+                revBL = enableB ? wetBL * levelB : 0.0;
+                revBR = enableB ? wetBR * levelB : 0.0;
+                break;
+
+            case 0:
+            default:
+                revAL = enableA ? wetAL * panAL * levelA : 0.0;
+                revAR = enableA ? wetAR * panAR * levelA : 0.0;
+                revBL = enableB ? wetBL * panBL * levelB : 0.0;
+                revBR = enableB ? wetBR * panBR * levelB : 0.0;
+                break;
+        }
+
+        // this is for applying the level before routing the output of one engine to the other
+        lastRevAL = revAL;
+        lastRevAR = revAR;
+        lastRevBL = revBL;
+        lastRevBR = revBR;
 
         double wetLCombined = revAL + revBL;
         double wetRCombined = revAR + revBR;
